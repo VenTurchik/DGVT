@@ -20,53 +20,15 @@ def run_cli(*args):
     )
 
 
-@pytest.mark.parametrize(
-    ("args", "expected"),
-    [
-        (
-            ["--package", "is-odd", "--version", "3.0.1"],
-            [
-                "package=is-odd",
-                "repository=https://registry.npmjs.org",
-                "test_mode=false",
-                "version=3.0.1",
-                "ascii=false",
-            ],
-        ),
-        (
-            [
-                "--package", "@scope/example", "--version", "1.0.0-rc.1+dev",
-                "--repository", "http://localhost:8080/npm", "--ascii",
-            ],
-            [
-                "package=@scope/example",
-                "repository=http://localhost:8080/npm",
-                "test_mode=false",
-                "version=1.0.0-rc.1+dev",
-                "ascii=true",
-            ],
-        ),
-        (
-            [
-                "--package", "A", "--test-mode", "--repository",
-                "examples/repository.json",
-            ],
-            [
-                "package=A",
-                "repository=examples/repository.json",
-                "test_mode=true",
-                "version=",
-                "ascii=false",
-            ],
-        ),
-    ],
-)
-def test_print_config(args, expected):
-    """CLI выводит все пять значений, в том числе значения по умолчанию."""
-    result = run_cli(*args)
-    assert result.returncode == 0
-    assert result.stderr == ""
-    assert result.stdout.splitlines() == expected
+def test_unsupported_test_mode():
+    """Валидные параметры локального режима дают понятную ошибку."""
+    result = run_cli(
+        "--package", "A", "--test-mode",
+        "--repository", "examples/repository.json",
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "тестовый режим не поддерживается" in result.stderr
 
 
 @pytest.mark.parametrize(

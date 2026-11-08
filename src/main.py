@@ -2,8 +2,11 @@
 
 import argparse
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+
+from registry import RegistryError, get_dependencies
 
 DEFAULT_REPOSITORY = "https://registry.npmjs.org"
 PACKAGE_PART = r"[a-z0-9-][a-z0-9._-]*"
@@ -84,14 +87,24 @@ def parse_args():
 
 
 def main():
-    """Напечатать конфигурацию в формате ключ=значение."""
+    """Вывести прямые зависимости выбранной версии npm-пакета."""
     args = parse_args()
-    print(f"package={args.package}")
-    print(f"repository={args.repository}")
-    print(f"test_mode={str(args.test_mode).lower()}")
-    print(f"version={args.version or ''}")
-    print(f"ascii={str(args.ascii).lower()}")
+    if args.test_mode:
+        print("DGVT: тестовый режим не поддерживается", file=sys.stderr)
+        return 1
+    try:
+        dependencies = get_dependencies(
+            args.repository, args.package, args.version
+        )
+    except RegistryError as error:
+        print(f"DGVT: {error}", file=sys.stderr)
+        return 1
+    if not dependencies:
+        print("Прямых зависимостей нет.")
+    for name, requirement in sorted(dependencies.items()):
+        print(f"{name} {requirement}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
