@@ -6,19 +6,13 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from registry import RegistryError, get_dependencies
+from .graph import TEST_NAME, bfs, load_test_graph
+from .registry import RegistryError, npm_neighbors
+from .versions import VERSION
 
 DEFAULT_REPOSITORY = "https://registry.npmjs.org"
 PACKAGE_PART = r"[a-z0-9-][a-z0-9._-]*"
 NPM_NAME = re.compile(rf"(?:@{PACKAGE_PART}/)?{PACKAGE_PART}")
-TEST_NAME = re.compile(r"[A-Z]+")
-NUMBER = r"(?:0|[1-9][0-9]*)"
-PRERELEASE = rf"(?:{NUMBER}|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
-VERSION = re.compile(
-    rf"{NUMBER}\.{NUMBER}\.{NUMBER}"
-    rf"(?:-{PRERELEASE}(?:\.{PRERELEASE})*)?"
-    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-)
 
 
 def is_registry_url(value):
@@ -86,23 +80,30 @@ def parse_args():
     return args
 
 
-def main():
-    """Вывести прямые зависимости выбранной версии npm-пакета."""
-    args = parse_args()
+def build_graph(args):
+    """Построить граф для выбранного источника."""
     if args.test_mode:
-        print("DGVT: тестовый режим не поддерживается", file=sys.stderr)
-        return 1
+        graph = load_test_graph(args.repository)
+        if args.package not in graph:
+            raise ValueError(f"вершина {args.package} не найдена")
+        return bfs(args.package, graph.__getitem__)
+    root = f"{args.package}@{args.version}"
+    return bfs(root, npm_neighbors(args.repository))
+
+
+def main():
+    """Вывести рёбра графа транзитивных зависимостей."""
+    args = parse_args()
     try:
-        dependencies = get_dependencies(
-            args.repository, args.package, args.version
-        )
-    except RegistryError as error:
+        graph = build_graph(args)
+    except (RegistryError, ValueError) as error:
         print(f"DGVT: {error}", file=sys.stderr)
         return 1
-    if not dependencies:
-        print("Прямых зависимостей нет.")
-    for name, requirement in sorted(dependencies.items()):
-        print(f"{name} {requirement}")
+    for node, children in graph.items():
+        for child in children:
+            print(f"{node} -> {child}")
+    if not any(graph.values()):
+        print(next(iter(graph)))
     return 0
 
 

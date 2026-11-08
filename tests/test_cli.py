@@ -20,15 +20,33 @@ def run_cli(*args):
     )
 
 
-def test_unsupported_test_mode():
-    """Валидные параметры локального режима дают понятную ошибку."""
+@pytest.mark.parametrize(
+    ("root", "edges"),
+    [
+        ("A", ["A -> B", "A -> C", "B -> D", "C -> D", "D -> E"]),
+        ("F", ["F -> G", "G -> F"]),
+        ("H", ["H"]),
+    ],
+)
+def test_local_graph(root, edges):
+    """CLI выводит достижимую часть графа, в том числе циклы."""
     result = run_cli(
-        "--package", "A", "--test-mode",
-        "--repository", "examples/repository.json",
+        "--package", root, "--test-mode",
+        "--repository", "examples/graphs.json",
+    )
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.splitlines() == edges
+
+
+def test_unknown_vertex():
+    """Неизвестный корень даёт ошибку выполнения."""
+    result = run_cli(
+        "--package", "Z", "--test-mode",
+        "--repository", "examples/graphs.json",
     )
     assert result.returncode == 1
-    assert result.stdout == ""
-    assert "тестовый режим не поддерживается" in result.stderr
+    assert "вершина Z не найдена" in result.stderr
 
 
 @pytest.mark.parametrize(

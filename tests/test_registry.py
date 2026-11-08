@@ -15,13 +15,19 @@ VERSION = "1.0.0"
 URL = "https://example.org/npm/@scope%2Fdemo"
 
 
+def read_dependencies():
+    """Получить и разобрать метаданные проверяемого пакета."""
+    versions = registry.fetch_versions(REPOSITORY, PACKAGE)
+    return registry.get_dependencies(versions, PACKAGE, VERSION)
+
+
 @pytest.mark.parametrize("release", [{}, {"dependencies": {}}])
 def test_no_dependencies(monkeypatch, release):
     """Пустое или отсутствующее поле означает отсутствие зависимостей."""
     response = {"versions": {VERSION: release}}
     fake = Mock(return_value=BytesIO(json.dumps(response).encode()))
     monkeypatch.setattr(registry, "urlopen", fake)
-    assert registry.get_dependencies(REPOSITORY, PACKAGE, VERSION) == {}
+    assert read_dependencies() == {}
 
 
 def test_select_exact_version(monkeypatch):
@@ -38,7 +44,7 @@ def test_select_exact_version(monkeypatch):
     }
     fake = Mock(return_value=BytesIO(json.dumps(response).encode()))
     monkeypatch.setattr(registry, "urlopen", fake)
-    assert registry.get_dependencies(REPOSITORY, PACKAGE, VERSION) == expected
+    assert read_dependencies() == expected
     assert fake.call_args.args[0].full_url == URL
 
 
@@ -64,7 +70,7 @@ def test_invalid_response(monkeypatch, body, message):
     """Повреждённый ответ или отсутствующая версия дают понятную ошибку."""
     monkeypatch.setattr(registry, "urlopen", Mock(return_value=BytesIO(body)))
     with pytest.raises(registry.RegistryError, match=message):
-        registry.get_dependencies(REPOSITORY, PACKAGE, VERSION)
+        read_dependencies()
 
 
 @pytest.mark.parametrize(
@@ -83,4 +89,4 @@ def test_request_error(monkeypatch, error, message):
     """Отказы HTTP, соединения и тайм-аут превращаются в ошибку DGVT."""
     monkeypatch.setattr(registry, "urlopen", Mock(side_effect=error))
     with pytest.raises(registry.RegistryError, match=message):
-        registry.get_dependencies(REPOSITORY, PACKAGE, VERSION)
+        read_dependencies()
