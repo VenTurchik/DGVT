@@ -41,14 +41,3 @@ def bfs(root, neighbors):
                 seen.add(child)
                 queue.append(child)
     return graph
-
-
-def reverse_dependencies(graph, target):
-    """Найти прямых и транзитивных предшественников вершины через BFS."""
-    if target not in graph:
-        raise ValueError(f"вершина {target} не найдена в графе")
-    reverse = {node: [] for node in graph}
-    for node, children in graph.items():
-        for child in children:
-            reverse[child].append(node)
-    return list(bfs(target, reverse.__getitem__))[1:]
