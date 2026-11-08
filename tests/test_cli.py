@@ -1,9 +1,12 @@
 """Проверки запуска DGVT через run.sh."""
 
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+from src import main
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -96,3 +99,53 @@ def test_invalid_argument(args, option):
     assert result.stdout == ""
     assert option in result.stderr.splitlines()[-1]
     assert "Traceback" not in result.stderr
+
+
+@pytest.mark.parametrize(
+    ("target", "expected"),
+    [
+        ("D", ["B", "C", "A"]),
+        ("F", ["G"]),
+        ("H", ["Обратных зависимостей нет."]),
+    ],
+)
+def test_reverse_local_graph(target, expected):
+    """Найти зависимые вершины во всём файле и исключить саму цель."""
+    result = run_cli(
+        "--package", "A", "--test-mode", "--repository",
+        "examples/graphs.json", "--reverse", target,
+    )
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.splitlines() == expected
+
+
+def test_reverse_unknown_target():
+    """Неизвестная цель обратного поиска даёт ошибку выполнения."""
+    result = run_cli(
+        "--package", "A", "--test-mode", "--repository",
+        "examples/graphs.json", "--reverse", "Z",
+    )
+    assert result.returncode == 1
+    assert result.stdout == ""
+    assert "вершина Z не найдена" in result.stderr
+
+
+def test_reverse_npm_graph(monkeypatch, capsys):
+    """Обратный поиск в npm различает версии одного пакета."""
+    graph = {
+        "root@1.0.0": ["a@1.0.0", "b@1.0.0"],
+        "a@1.0.0": ["dep@1.0.0"],
+        "b@1.0.0": ["dep@2.0.0"],
+        "dep@1.0.0": [],
+        "dep@2.0.0": [],
+        "outside@1.0.0": ["dep@2.0.0"],
+    }
+    monkeypatch.setattr(main, "npm_neighbors", lambda _: graph.__getitem__)
+    monkeypatch.setattr(
+        sys, "argv",
+        ["DGVT", "--package", "root", "--version", "1.0.0",
+         "--reverse", "dep@2.0.0"],
+    )
+    assert main.main() == 0
+    assert capsys.readouterr().out.splitlines() == ["b@1.0.0", "root@1.0.0"]

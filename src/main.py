@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .graph import TEST_NAME, bfs, load_test_graph
+from .graph import TEST_NAME, bfs, load_test_graph, reverse_dependencies
 from .registry import RegistryError, npm_neighbors
 from .versions import VERSION
 
@@ -65,6 +65,7 @@ def parse_args():
     parser.add_argument(
         "--ascii", action="store_true", help="включить вывод ASCII-дерева"
     )
+    parser.add_argument("--reverse", metavar="TARGET", help="зависимые от узла")
     args = parser.parse_args()
     if args.test_mode:
         validate_test_mode(parser, args)
@@ -86,16 +87,22 @@ def build_graph(args):
         graph = load_test_graph(args.repository)
         if args.package not in graph:
             raise ValueError(f"вершина {args.package} не найдена")
+        if args.reverse is not None:
+            return graph
         return bfs(args.package, graph.__getitem__)
     root = f"{args.package}@{args.version}"
     return bfs(root, npm_neighbors(args.repository))
 
 
 def main():
-    """Вывести рёбра графа транзитивных зависимостей."""
+    """Вывести рёбра графа или список зависимых от цели пакетов."""
     args = parse_args()
     try:
         graph = build_graph(args)
+        if args.reverse is not None:
+            packages = reverse_dependencies(graph, args.reverse)
+            print("\n".join(packages) or "Обратных зависимостей нет.")
+            return 0
     except (RegistryError, ValueError) as error:
         print(f"DGVT: {error}", file=sys.stderr)
         return 1
