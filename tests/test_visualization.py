@@ -10,6 +10,8 @@ import pytest
 from src import main, visualization
 
 ROOT = Path(__file__).resolve().parents[1]
+EXIT_SUCCESS = 0
+EXIT_RUNTIME_ERROR = 1
 
 
 def test_dot_keeps_nodes_and_edges():
@@ -78,7 +80,8 @@ def test_cli_renders_graph(monkeypatch, tmp_path, capsys, opens):
     open_browser = Mock(return_value=opens)
     monkeypatch.setattr(visualization.webbrowser, "open", open_browser)
 
-    assert main.main() == (0 if opens else 1)
+    expected_status = EXIT_SUCCESS if opens else EXIT_RUNTIME_ERROR
+    assert main.main() == expected_status
     dot_path = tmp_path / "output" / "F.dot"
     svg_path = tmp_path / "output" / "F.svg"
     assert '"G" -> "F";' in dot_path.read_text()

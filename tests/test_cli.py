@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
+EXIT_RUNTIME_ERROR = 1
+EXIT_ARGUMENT_ERROR = 2
 
 
 def run_cli(*args):
@@ -26,7 +28,7 @@ def test_unknown_vertex():
         "--package", "Z", "--test-mode",
         "--repository", "examples/graphs.json",
     )
-    assert result.returncode == 1
+    assert result.returncode == EXIT_RUNTIME_ERROR
     assert "вершина Z не найдена" in result.stderr
 
 
@@ -75,7 +77,7 @@ def test_unknown_vertex():
 def test_invalid_argument(args, option):
     """Неверная конфигурация отклоняется без вывода значений и traceback."""
     result = run_cli(*args)
-    assert result.returncode == 2
+    assert result.returncode == EXIT_ARGUMENT_ERROR
     assert result.stdout == ""
     assert option in result.stderr.splitlines()[-1]
     assert "Traceback" not in result.stderr
